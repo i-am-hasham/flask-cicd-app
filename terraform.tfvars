@@ -18,7 +18,7 @@ ecr_repo_name = "flask-cicd-app"
 instance_type = "t2.micro"
 ami           = "ami-0c7217cdde317cfec"
 key_pair_name = "hasham-key"
-my_ip         = "0.0.0.0/0"   # replace with your real IP
+my_ip         = "110.93.246.157/32"   # replace with your real IP
 
 # App
 app_port       = 5000
