@@ -1,19 +1,13 @@
 ##############################################################
 # modules/codepipeline/main.tf
-# Creates:
-#   S3 bucket     — stores pipeline artifacts between stages
-#   CodePipeline  — orchestrates Source → Build → Deploy
+# Updated to GitHub v2 via CodeStar Connection
 ##############################################################
 
 # ── Artifact Bucket ───────────────────────────────────────────
-# Stores files between pipeline stages
-# Source stage puts code here → Build stage reads it → Build puts
-# built artifacts here → Deploy stage reads them
 resource "aws_s3_bucket" "artifacts" {
   bucket        = "${var.project_name}-pipeline-artifacts-${var.account_id}"
-  force_destroy = true   # allow delete even when bucket has objects
-
-  tags = { Name = "${var.project_name}-pipeline-artifacts" }
+  force_destroy = true
+  tags          = { Name = "${var.project_name}-pipeline-artifacts" }
 }
 
 resource "aws_s3_bucket_versioning" "artifacts" {
@@ -46,34 +40,30 @@ resource "aws_codepipeline" "app" {
     type     = "S3"
   }
 
-  # ── STAGE 1: Source ─────────────────────────────────────────
-  # Watches GitHub for new commits on the specified branch
-  # When a commit is detected → triggers the pipeline automatically
+  # ── Stage 1: Source — GitHub v2 ─────────────────────────────
+  # Uses CodeStar Connection instead of deprecated OAuthToken
+  # provider = "CodeStarSourceConnection" (not "GitHub")
+  # owner    = "AWS" (not "ThirdParty")
   stage {
     name = "Source"
     action {
       name             = "GitHub-Source"
       category         = "Source"
-      owner            = "ThirdParty"
-      provider         = "GitHub"
+      owner            = "AWS"
+      provider         = "CodeStarSourceConnection"
       version          = "1"
       output_artifacts = ["source_output"]
 
       configuration = {
-        Owner      = var.github_owner
-        Repo       = var.github_repo
-        Branch     = var.github_branch
-        OAuthToken = var.github_token
-        # OAuthToken read from SSM via codepipeline role
-        # Webhook auto-created when OAuthToken is provided
+        ConnectionArn        = var.codestar_connection_arn
+        FullRepositoryId     = "${var.github_owner}/${var.github_repo}"
+        BranchName           = var.github_branch
+        OutputArtifactFormat = "CODE_ZIP"
       }
     }
   }
 
-  # ── STAGE 2: Build ──────────────────────────────────────────
-  # CodeBuild reads source_output (the GitHub code)
-  # Runs buildspec.yml: build Docker image → push to ECR
-  # Outputs: appspec.yml + scripts/ + imagedefinitions.json
+  # ── Stage 2: Build ──────────────────────────────────────────
   stage {
     name = "Build"
     action {
@@ -91,10 +81,7 @@ resource "aws_codepipeline" "app" {
     }
   }
 
-  # ── STAGE 3: Deploy ─────────────────────────────────────────
-  # CodeDeploy reads build_output (appspec.yml + scripts)
-  # Connects to EC2 via CodeDeploy agent
-  # Runs: stop_app → before_install → start_app → validate
+  # ── Stage 3: Deploy ─────────────────────────────────────────
   stage {
     name = "Deploy"
     action {

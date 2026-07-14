@@ -34,12 +34,10 @@ variable "github_branch" {
 }
 
 variable "github_token" {
-  description = "GitHub personal access token - stored in SSM, not here"
+  description = "GitHub token - only used for SSM parameter. Real value already in SSM via CLI."
   type        = string
   sensitive   = true
-  default     = ""
-  # Do NOT put token here — it goes in SSM Parameter Store
-  # This variable is only used during SSM setup
+  default     = "placeholder"
 }
 
 # ── ECR ───────────────────────────────────────────────────────
@@ -69,7 +67,7 @@ variable "key_pair_name" {
 }
 
 variable "my_ip" {
-  description = "Your IP for SSH access - curl checkip.amazonaws.com"
+  description = "Your IP for SSH access"
   type        = string
   default     = "0.0.0.0/0"
 }

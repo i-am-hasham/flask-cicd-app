@@ -1,40 +1,49 @@
 variable "project_name" {
-  type = string
+  description = "Project name prefix"
+  type        = string
 }
 
 variable "account_id" {
-  type = string
+  description = "AWS account ID for unique S3 bucket naming"
+  type        = string
 }
 
 variable "codepipeline_role_arn" {
-  type = string
+  description = "IAM role ARN for CodePipeline"
+  type        = string
 }
 
 variable "github_owner" {
-  type = string
+  description = "GitHub username or organization"
+  type        = string
 }
 
 variable "github_repo" {
-  type = string
+  description = "GitHub repository name"
+  type        = string
 }
 
 variable "github_branch" {
-  type = string
+  description = "GitHub branch to watch"
+  type        = string
 }
 
-variable "github_token" {
-  type      = string
-  sensitive = true
+variable "codestar_connection_arn" {
+  description = "CodeStar connection ARN for GitHub v2 - created in root main.tf"
+  type        = string
 }
 
 variable "codebuild_project_name" {
-  type = string
+  description = "CodeBuild project name"
+  type        = string
 }
 
 variable "codedeploy_app_name" {
-  type = string
+  description = "CodeDeploy application name"
+  type        = string
 }
 
 variable "codedeploy_deployment_group" {
-  type = string
+  description = "CodeDeploy deployment group name"
+  type        = string
 }

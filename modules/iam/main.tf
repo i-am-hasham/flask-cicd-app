@@ -1,10 +1,6 @@
 ##############################################################
 # modules/iam/main.tf
-# Creates IAM roles for:
-#   1. CodePipeline  — orchestrates the pipeline
-#   2. CodeBuild     — builds Docker image, pushes to ECR
-#   3. CodeDeploy    — deploys to EC2
-#   4. EC2           — instance profile for deploy target
+# Four IAM roles: CodePipeline, CodeBuild, CodeDeploy, EC2
 ##############################################################
 
 data "aws_caller_identity" "current" {}
@@ -42,16 +38,28 @@ resource "aws_iam_role_policy" "codepipeline" {
         Resource = "*"
       },
       {
-        Effect   = "Allow"
-        Action   = ["codedeploy:CreateDeployment", "codedeploy:GetDeployment",
-                    "codedeploy:GetApplication", "codedeploy:GetApplicationRevision",
-                    "codedeploy:RegisterApplicationRevision", "codedeploy:GetDeploymentConfig",
-                    "iam:PassRole"]
+        Effect = "Allow"
+        Action = [
+          "codedeploy:CreateDeployment",
+          "codedeploy:GetDeployment",
+          "codedeploy:GetApplication",
+          "codedeploy:GetApplicationRevision",
+          "codedeploy:RegisterApplicationRevision",
+          "codedeploy:GetDeploymentConfig",
+          "iam:PassRole"
+        ]
         Resource = "*"
       },
       {
         Effect   = "Allow"
         Action   = ["ssm:GetParameters", "ssm:GetParameter"]
+        Resource = "*"
+      },
+      {
+        # Required for CodeStar Connection (GitHub v2)
+        # Without this: pipeline cannot pull code from GitHub
+        Effect   = "Allow"
+        Action   = ["codestar-connections:UseConnection"]
         Resource = "*"
       }
     ]
@@ -80,19 +88,16 @@ resource "aws_iam_role_policy" "codebuild" {
     Version = "2012-10-17"
     Statement = [
       {
-        # CloudWatch Logs — CodeBuild writes build logs here
-        Effect = "Allow"
-        Action = ["logs:CreateLogGroup", "logs:CreateLogStream", "logs:PutLogEvents"]
+        Effect   = "Allow"
+        Action   = ["logs:CreateLogGroup", "logs:CreateLogStream", "logs:PutLogEvents"]
         Resource = "*"
       },
       {
-        # S3 — read source artifacts, write output artifacts
         Effect   = "Allow"
         Action   = ["s3:GetObject", "s3:PutObject", "s3:GetObjectVersion"]
         Resource = ["${var.artifact_bucket_arn}/*"]
       },
       {
-        # ECR — authenticate, push images
         Effect   = "Allow"
         Action   = ["ecr:GetAuthorizationToken"]
         Resource = "*"
@@ -111,13 +116,11 @@ resource "aws_iam_role_policy" "codebuild" {
         Resource = var.ecr_repo_arn
       },
       {
-        # SSM — read secrets (GitHub token)
         Effect   = "Allow"
         Action   = ["ssm:GetParameters", "ssm:GetParameter"]
         Resource = "*"
       },
       {
-        # STS — get account ID in buildspec
         Effect   = "Allow"
         Action   = ["sts:GetCallerIdentity"]
         Resource = "*"
@@ -140,14 +143,12 @@ resource "aws_iam_role" "codedeploy" {
   })
 }
 
-# AWS managed policy for CodeDeploy — covers all EC2 deployment needs
 resource "aws_iam_role_policy_attachment" "codedeploy" {
   role       = aws_iam_role.codedeploy.name
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSCodeDeployRole"
 }
 
 # ── 4. EC2 Instance Role ──────────────────────────────────────
-# EC2 needs to: pull images from ECR, be managed by CodeDeploy
 resource "aws_iam_role" "ec2" {
   name = "${var.project_name}-ec2-role"
 
@@ -168,7 +169,6 @@ resource "aws_iam_role_policy" "ec2" {
   policy = jsonencode({
     Statement = [
       {
-        # ECR — pull Docker images at deployment time
         Effect   = "Allow"
         Action   = ["ecr:GetAuthorizationToken"]
         Resource = "*"
@@ -183,23 +183,25 @@ resource "aws_iam_role_policy" "ec2" {
         Resource = var.ecr_repo_arn
       },
       {
-        # S3 — CodeDeploy agent downloads deployment artifacts from S3
         Effect   = "Allow"
         Action   = ["s3:GetObject", "s3:GetObjectVersion", "s3:ListBucket"]
         Resource = ["${var.artifact_bucket_arn}", "${var.artifact_bucket_arn}/*"]
       },
       {
-        # CloudWatch — EC2 can push custom metrics/logs
-        Effect   = "Allow"
-        Action   = ["cloudwatch:PutMetricData", "logs:CreateLogGroup",
-                    "logs:CreateLogStream", "logs:PutLogEvents"]
+        Effect = "Allow"
+        Action = [
+          "cloudwatch:PutMetricData",
+          "logs:CreateLogGroup",
+          "logs:CreateLogStream",
+          "logs:PutLogEvents"
+        ]
         Resource = "*"
       }
     ]
   })
 }
 
-# Instance profile — attaches the IAM role to EC2
+# Instance profile — wraps the role so EC2 can use it
 resource "aws_iam_instance_profile" "ec2" {
   name = "${var.project_name}-ec2-profile"
   role = aws_iam_role.ec2.name
