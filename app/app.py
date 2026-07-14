@@ -17,7 +17,7 @@ def home():
     <head><title>Flask CI/CD Pipeline</title></head>
     <body style="font-family: Arial; text-align: center; padding: 50px; background: #1a1a2e; color: #eee;">
         <h1 style="color: #00d4ff;">Flask App — AWS CI/CD Pipeline</h1>
-        <h2>GitHub → CodePipeline → CodeBuild → ECR → CodeDeploy → EC2</h2>
+        <h2>GitHub → CodePipeline → CodeBuild → ECR → CodeDeploy → EC2 instaaaa</h2>
         <hr style="border-color: #00d4ff;">
         <p>Hostname: {socket.gethostname()}</p>
         <p>Time: {datetime.datetime.now()}</p>
