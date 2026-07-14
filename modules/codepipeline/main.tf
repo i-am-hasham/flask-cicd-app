@@ -1,6 +1,6 @@
 ##############################################################
 # modules/codepipeline/main.tf
-# Updated to GitHub v2 via CodeStar Connection
+# GitHub v2 via CodeStar Connection + auto-trigger on push
 ##############################################################
 
 # ── Artifact Bucket ───────────────────────────────────────────
@@ -32,18 +32,31 @@ resource "aws_s3_bucket_public_access_block" "artifacts" {
 
 # ── CodePipeline ──────────────────────────────────────────────
 resource "aws_codepipeline" "app" {
+  pipeline_type = "V2"
   name     = "${var.project_name}-pipeline"
   role_arn = var.codepipeline_role_arn
+
+  # Auto-trigger on every push to main branch
+  # Without this block: pipeline does NOT trigger on git push
+  # You would have to manually trigger every time
+  trigger {
+    provider_type = "CodeStarSourceConnection"
+    git_configuration {
+      source_action_name = "GitHub-Source"
+      push {
+        branches {
+          includes = [var.github_branch]
+        }
+      }
+    }
+  }
 
   artifact_store {
     location = aws_s3_bucket.artifacts.bucket
     type     = "S3"
   }
 
-  # ── Stage 1: Source — GitHub v2 ─────────────────────────────
-  # Uses CodeStar Connection instead of deprecated OAuthToken
-  # provider = "CodeStarSourceConnection" (not "GitHub")
-  # owner    = "AWS" (not "ThirdParty")
+  # ── Stage 1: Source ─────────────────────────────────────────
   stage {
     name = "Source"
     action {
